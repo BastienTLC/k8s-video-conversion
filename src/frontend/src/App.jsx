@@ -69,8 +69,8 @@ function App() {
             <p>Status: {status}</p>
             {fileId && (
                 <a
-                    href={`${import.meta.env.VITE_API_URL}/download/${fileId}`}
-                    download
+                href={`${import.meta.env.VITE_API_URL}/download/${fileId.replace(/\.[^.]+$/, '')}.${format}`}
+                download
                 >
                     Download
                 </a>

@@ -2,6 +2,7 @@ import logging
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from kafka import KafkaProducer, KafkaConsumer
+from kafka.errors import NoBrokersAvailable
 import os
 import logging
 import json
@@ -17,12 +18,20 @@ CORS(app)  # Allow CORS for all routes
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
 logging.debug(f"Connecting to Kafka broker at {KAFKA_BROKER}")
 
-try:
-    producer = KafkaProducer(bootstrap_servers=KAFKA_BROKER, value_serializer=lambda v: json.dumps(v).encode('utf-8'))
-    logging.info("Kafka producer connected successfully.")
-except Exception as e:
-    logging.error(f"Failed to connect to Kafka broker: {e}")
-    producer = None
+def create_kafka_producer():
+    while True:
+        try:
+            producer = KafkaProducer(
+                bootstrap_servers=KAFKA_BROKER,
+                value_serializer=lambda v: json.dumps(v).encode('utf-8')
+            )
+            logging.info("Kafka producer connected successfully.")
+            return producer
+        except NoBrokersAvailable as e:
+            logging.error(f"Failed to connect to Kafka broker: {e}. Retrying in 5 seconds...")
+            time.sleep(5)  # Attendre 5 secondes avant de réessayer
+
+producer = create_kafka_producer()
 
 SHARED_STORAGE_BASE_PATH = os.getenv("SHARED_STORAGE_BASE_PATH", "/home/bastien/shared_storage/base")
 SHARED_STORAGE_CONVERT_PATH = os.getenv("SHARED_STORAGE_CONVERT_PATH", "/home/bastien/shared_storage/convert")
