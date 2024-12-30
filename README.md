@@ -23,6 +23,30 @@ This application processes video files uploaded via an API, converts them using 
 
 ---
 
+## **How to Run with Kubernetes**
+
+1. **Start the services with Kubectl**  
+    Use the following command to start the services (API, Kafka, Worker, Frontend):
+    ```bash
+    kubectl apply -f manifest.yaml
+    ```
+
+2. **Verify the services**  
+    Ensure everything is running by checking services, pods, etc.:
+    ```bash
+    kubectl get svc
+    kubectl get pod
+    ```
+
+3. **Forward the frontend and API**  
+    Expose the frontend and the API outside the cluster:
+    ```bash
+    kubectl port-forward svc/frontend 8080:80    
+    kubectl port-forward svc/flask-api-service 5000:5000
+    ```
+
+---
+
 ## **Creating Kafka Topics**
 
 To enable the communication between the API and Worker, create the required Kafka topics.
@@ -73,3 +97,9 @@ docker-compose down
 To remove all volumes and clean up storage:
 ```bash
 docker-compose down --volumes
+```
+
+To stop and remove all ressources form cluster:
+```bash
+kubectl delete -f manifest.yaml
+```

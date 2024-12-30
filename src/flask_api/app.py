@@ -104,5 +104,12 @@ def download_file(video_id):
 
     return send_file(output_file, as_attachment=True)
 
+@app.route('/test', methods=['GET'])
+def test():
+    logging.debug(f"API is up and running.")
+    
+    return jsonify({"status": "ok"}), 200
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

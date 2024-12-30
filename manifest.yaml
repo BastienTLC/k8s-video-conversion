@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: shared-storage-pv
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /tmp/shared_storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-storage-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kafka-data-pv
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp/kafka_data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flask-api
+  template:
+    metadata:
+      labels:
+        app: flask-api
+    spec:
+      containers:
+        - name: flask-api
+          image: adrienpln49/k8s-video-conversion-flask:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: KAFKA_BROKER
+              value: "kafka-service:9092"
+            - name: SHARED_STORAGE_BASE_PATH
+              value: "/shared_storage/base"
+            - name: SHARED_STORAGE_CONVERT_PATH
+              value: "/shared_storage/convert"
+          volumeMounts:
+            - name: shared-storage
+              mountPath: /shared_storage
+      volumes:
+        - name: shared-storage
+          persistentVolumeClaim:
+            claimName: shared-storage-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-api-service
+spec:
+  selector:
+    app: flask-api
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+#       nodePort: 32000  # Choisir un port entre 30000 et 32767
+#   type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+        - name: kafka
+          image: confluentinc/cp-kafka:latest
+          ports:
+            - containerPort: 9092
+              name: kafka-plain
+            - containerPort: 9093
+              name: kafka-ctrl
+          env:
+            - name: KAFKA_KRAFT_MODE
+              value: "true"
+            - name: KAFKA_PROCESS_ROLES
+              value: "controller,broker"
+            - name: KAFKA_NODE_ID
+              value: "1"
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: "1@localhost:9093"
+            - name: KAFKA_LISTENERS
+              value: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: "CONTROLLER"
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka-service:9092"
+            - name: KAFKA_LOG_DIRS
+              value: "/var/lib/kafka/data"
+            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+              value: "true"
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_LOG_RETENTION_HOURS
+              value: "168"
+            - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+              value: "0"
+            - name: CLUSTER_ID
+              value: "Mk3OEYBSD34fcwNTJENDM2Qk"
+          volumeMounts:
+            - name: kafka-data
+              mountPath: /var/lib/kafka/data
+      volumes:
+        - name: kafka-data
+          persistentVolumeClaim:
+            claimName: kafka-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+spec:
+  selector:
+    app: kafka
+  ports:
+    - protocol: TCP
+      name: kafka-plain
+      port: 9092
+      targetPort: 9092
+    - protocol: TCP
+      name: kafka-ctrl
+      port: 9093
+      targetPort: 9093
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: adrienpln49/k8s-video-conversion-worker:latest
+          env:
+            - name: KAFKA_BROKER
+              value: "kafka-service:9092"
+            - name: SHARED_STORAGE_BASE_PATH
+              value: "/shared_storage/base"
+            - name: SHARED_STORAGE_CONVERT_PATH
+              value: "/shared_storage/convert"
+          volumeMounts:
+            - name: shared-storage
+              mountPath: /shared_storage
+      volumes:
+        - name: shared-storage
+          persistentVolumeClaim:
+            claimName: shared-storage-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: adrienpln49/k8s-video-conversion-frontend:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: VITE_API_URL
+              value: "http://127.0.0.1:5000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80        # Port interne que le service expose
+      targetPort: 80  # Port sur lequel ton conteneur écoute
+#       nodePort: 30000 # Port externe que tu utiliseras pour accéder au service
+#   type: NodePort

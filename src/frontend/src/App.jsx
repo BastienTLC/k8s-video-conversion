@@ -26,6 +26,7 @@ function App() {
         try {
             const response = await axios.post(
                 `${import.meta.env.VITE_API_URL}/submit`,
+                // 'http://127.0.0.1:5000/submit',
                 formData
             );
             setStatus("Processing...");
@@ -40,6 +41,7 @@ function App() {
             try {
                 const response = await axios.get(
                     `${import.meta.env.VITE_API_URL}/status/${videoId}`
+                    // `http://127.0.0.1:5000/status/${videoId}`
                 );
                 const { status, output_file, video_id } = response.data;
                 console.log(response.data);
@@ -70,6 +72,7 @@ function App() {
             {fileId && (
                 <a
                 href={`${import.meta.env.VITE_API_URL}/download/${fileId.replace(/\.[^.]+$/, '')}.${format}`}
+                // href={`http://127.0.0.1:5000/download/${fileId.replace(/\.[^.]+$/, '')}.${format}`}
                 download
                 >
                     Download
