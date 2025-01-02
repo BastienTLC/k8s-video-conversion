@@ -1,0 +1,54 @@
+replicaCount: 1
+
+namespaceOverride: monitoring
+
+# Dashboards Configuration
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: "default"
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 10
+        options:
+          path: /var/lib/grafana/dashboards
+
+dashboards:
+  default:
+    strimzi-kafka:
+      file: /dashboards/strimzi-kafka.json
+    strimzi-kraft:
+      file: /dashboards/strimzi-kraft.json
+
+extraVolumeMounts:
+  - name: dashboards
+    mountPath: /dashboards
+
+extraVolumes:
+  - name: dashboards
+    hostPath:
+      path: /home/c5dv192-ht24-g4/k8s-video-conversion/kubernetes/dashboards
+      type: Directory
+
+# Admin User Configuration
+adminUser: admin
+adminPassword: admin123
+
+# Service Configuration
+service:
+  type: ClusterIP
+  port: 3000
+
+# Prometheus Datasource Configuration
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.cluster.local:9090
+        isDefault: true
