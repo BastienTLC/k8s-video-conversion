@@ -54,16 +54,12 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
-  kafkaExporter:
-    topicRegex: ".*"
-    groupRegex: ".*"
 ---
 
 kind: ConfigMap
 apiVersion: v1
 metadata:
   name: kafka-metrics
-  namespace: default  # Remplacez par le namespace utilisé
   labels:
     app: strimzi
 data:
