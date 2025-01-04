@@ -1,22 +1,38 @@
-import logging
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.errors import NoBrokersAvailable
+from minio import Minio
+from minio.error import S3Error
 import os
-import logging
 import json
 import time
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 CORS(app)  # Allow CORS for all routes
 
 # Kafka configuration
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
-logging.debug(f"Connecting to Kafka broker at {KAFKA_BROKER}")
+print(f"Connecting to Kafka broker at {KAFKA_BROKER}")
+
+# MinIO configuration
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+MINIO_BUCKET_BASE = os.getenv("MINIO_BUCKET_BASE", "video-base")
+MINIO_BUCKET_CONVERT = os.getenv("MINIO_BUCKET_CONVERT", "video-convert")
+
+# Initialize MinIO client
+minio_client = Minio(
+    MINIO_ENDPOINT,
+    access_key=MINIO_ACCESS_KEY,
+    secret_key=MINIO_SECRET_KEY,
+    secure=False  # Set to True if using HTTPS
+)
+
+# Ensure the base bucket exists
+if not minio_client.bucket_exists(MINIO_BUCKET_BASE):
+    minio_client.make_bucket(MINIO_BUCKET_BASE)
 
 def create_kafka_producer():
     while True:
@@ -25,52 +41,54 @@ def create_kafka_producer():
                 bootstrap_servers=KAFKA_BROKER,
                 value_serializer=lambda v: json.dumps(v).encode('utf-8')
             )
-            logging.info("Kafka producer connected successfully.")
+            print("Kafka producer connected successfully.")
             return producer
         except NoBrokersAvailable as e:
-            logging.error(f"Failed to connect to Kafka broker: {e}. Retrying in 5 seconds...")
-            time.sleep(5)  # Attendre 5 secondes avant de réessayer
+            print(f"Failed to connect to Kafka broker: {e}. Retrying in 5 seconds...")
+            time.sleep(5)  # Wait 5 seconds before retrying
 
 producer = create_kafka_producer()
 
-SHARED_STORAGE_BASE_PATH = os.getenv("SHARED_STORAGE_BASE_PATH", "/home/bastien/shared_storage/base")
-SHARED_STORAGE_CONVERT_PATH = os.getenv("SHARED_STORAGE_CONVERT_PATH", "/home/bastien/shared_storage/convert")
-
 @app.route('/submit', methods=['POST'])
 def submit_video():
-    logging.debug("Received /submit request.")
+    print("Received /submit request.")
     file = request.files.get('file')
     format = request.form.get('format')
 
     if not file or not format:
-        logging.warning("Invalid input: file or format missing.")
+        print("Invalid input: file or format missing.")
         return jsonify({"error": "Invalid input"}), 400
 
-    # Ensure base storage path exists
-    os.makedirs(SHARED_STORAGE_BASE_PATH, exist_ok=True)
     video_name = file.filename.split(".")[0]
     video_base_format = file.filename.split(".")[1]
     timestamp = int(time.time())
     video_id = f"{video_name}_{timestamp}.{video_base_format}"
-    file_path = os.path.join(SHARED_STORAGE_BASE_PATH, video_id)
-
-    file.save(file_path)
-
-    task = {"video_id": video_id, "format": format, "file_path": file_path}
-    logging.info(f"Task to send: {task}")
 
     try:
-        producer.send("task_queue", value=task)
-        logging.info("Task sent to Kafka successfully.")
-    except Exception as e:
-        logging.error(f"Failed to send task to Kafka: {e}")
-        return jsonify({"error": "Failed to process task"}), 500
+        # Upload the video to MinIO
+        minio_client.put_object(
+            MINIO_BUCKET_BASE, video_id, file, length=-1, part_size=10*1024*1024
+        )
+        print(f"Uploaded video {video_id} to MinIO bucket {MINIO_BUCKET_BASE}.")
 
-    return jsonify({"video_id": video_id}), 200
+        task = {"video_id": video_id, "format": format}
+        print(f"Task to send: {task}")
+
+        producer.send("task_queue", value=task)
+        print("Task sent to Kafka successfully.")
+
+        return jsonify({"video_id": video_id}), 200
+
+    except S3Error as e:
+        print(f"Failed to upload video to MinIO: {e}")
+        return jsonify({"error": "Failed to upload video"}), 500
+    except Exception as e:
+        print(f"Error processing task: {e}")
+        return jsonify({"error": "Failed to process task"}), 500
 
 @app.route('/status/<video_id>', methods=['GET'])
 def check_status(video_id):
-    logging.debug(f"Received /status request for video_id: {video_id}")
+    print(f"Received /status request for video_id: {video_id}")
     try:
         consumer = KafkaConsumer(
             "result_queue",
@@ -79,37 +97,46 @@ def check_status(video_id):
             enable_auto_commit=True,
             value_deserializer=lambda v: json.loads(v.decode('utf-8'))
         )
-        logging.info("Connected to Kafka consumer for result_queue.")
+        print("Connected to Kafka consumer for result_queue.")
 
         for message in consumer:
             result = message.value
-            logging.debug(f"Received message from Kafka: {result}")
+            print(f"Received message from Kafka: {result}")
             if result["video_id"] == video_id:
+                print(f"Matching result found for video_id: {video_id}")
                 return jsonify(result), 200
 
     except Exception as e:
-        logging.error(f"Failed to consume messages from Kafka: {e}")
+        print(f"Failed to consume messages from Kafka: {e}")
         return jsonify({"error": "Failed to check status"}), 500
 
+    print(f"No matching result found for video_id: {video_id}")
     return jsonify({"status": "processing"}), 200
 
 @app.route('/download/<video_id>', methods=['GET'])
 def download_file(video_id):
-    logging.debug(f"Received /download request for video_id: {video_id}")
-    output_file = os.path.join(SHARED_STORAGE_CONVERT_PATH, video_id)
+    print(f"Received /download request for video_id: {video_id}")
+    temp_file = f"/tmp/{video_id}"
 
-    if not os.path.exists(output_file):
-        logging.warning(f"File not found: {output_file}")
+    try:
+        # Download the file from MinIO
+        minio_client.fget_object(MINIO_BUCKET_CONVERT, video_id, temp_file)
+        print(f"File {video_id} downloaded to temporary location {temp_file}")
+
+        # Serve the file for download
+        return send_file(temp_file, as_attachment=True)
+    except S3Error as e:
+        print(f"Failed to download file {video_id} from MinIO: {e}")
         return jsonify({"error": "File not found"}), 404
-
-    return send_file(output_file, as_attachment=True)
-
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+            print(f"Temporary file {temp_file} deleted.")
 @app.route('/test', methods=['GET'])
 def test():
-    logging.debug(f"API is up and running.")
-    
+    print(f"API is up and running.")
     return jsonify({"status": "ok"}), 200
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

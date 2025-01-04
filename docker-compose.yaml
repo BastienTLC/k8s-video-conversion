@@ -8,12 +8,14 @@ services:
       - "5000:5000"
     environment:
       - KAFKA_BROKER=kafka:9092
-      - SHARED_STORAGE_BASE_PATH=/shared_storage/base
-      - SHARED_STORAGE_CONVERT_PATH=/shared_storage/convert
-    volumes:
-      - shared_storage:/shared_storage
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET_BASE=video-base
+      - MINIO_BUCKET_CONVERT=video-convert
     depends_on:
       - kafka
+      - minio
 
   kafka:
     image: confluentinc/cp-kafka:latest
@@ -46,13 +48,14 @@ services:
       context: ./src/ffmpeg_worker
     environment:
       - KAFKA_BROKER=kafka:9092
-      - SHARED_STORAGE_BASE_PATH=/shared_storage/base
-      - SHARED_STORAGE_CONVERT_PATH=/shared_storage/convert
-    volumes:
-      - shared_storage:/shared_storage
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET_BASE=video-base
+      - MINIO_BUCKET_CONVERT=video-convert
     depends_on:
       - kafka
-      - flask
+      - minio
 
   frontend:
     build:
@@ -60,10 +63,24 @@ services:
       args:
         - VITE_API_URL=http://localhost:5000
     ports:
-      - "3000:80"
+      - "3001:80"
     environment:
       - VITE_API_URL=http://localhost:5000
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
 
 volumes:
   shared_storage:
   kafka_data:
+  minio_data:

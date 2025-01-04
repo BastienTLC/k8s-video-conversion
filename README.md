@@ -98,6 +98,7 @@ To remove all volumes and clean up storage:
 ```bash
 docker-compose down --volumes
 ```
+```
 
 To stop and remove all ressources form cluster:
 ```bash
