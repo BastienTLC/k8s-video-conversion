@@ -60,12 +60,10 @@ services:
   frontend:
     build:
       context: ./src/frontend
-      args:
-        - VITE_API_URL=http://localhost:5000
     ports:
       - "3001:80"
     environment:
-      - VITE_API_URL=http://localhost:5000
+      - MY_APP_VITE_API_URL=http://localhost:5000
 
   minio:
     image: minio/minio:latest
