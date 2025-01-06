@@ -49,6 +49,20 @@ def create_kafka_producer():
 
 producer = create_kafka_producer()
 
+
+video_formats = [
+    {"Format": "MP4", "Extension": "mp4"},
+    {"Format": "AVI", "Extension": "avi"},
+    {"Format": "MKV", "Extension": "mkv"},
+    {"Format": "MOV", "Extension": "mov"},
+    {"Format": "WMV", "Extension": "wmv"},
+    {"Format": "FLV", "Extension": "flv"},
+    {"Format": "WEBM", "Extension": "webm"},
+    {"Format": "MPEG", "Extension": "mpeg"},
+    {"Format": "3GP", "Extension": "3gp"},
+    {"Format": "OGG", "Extension": "ogv"}
+]
+
 @app.route('/submit', methods=['POST'])
 def submit_video():
     print("Received /submit request.")
@@ -59,10 +73,13 @@ def submit_video():
         print("Invalid input: file or format missing.")
         return jsonify({"error": "Invalid input"}), 400
 
-    video_name = file.filename.split(".")[0]
-    video_base_format = file.filename.split(".")[1]
+    if format not in [f["Extension"] for f in video_formats]:
+        print(f"Invalid format: {format}")
+        return jsonify({"error": "Invalid format"}), 400
+
+    video_name, video_base_format = os.path.splitext(file.filename)
     timestamp = int(time.time())
-    video_id = f"{video_name}_{timestamp}.{video_base_format}"
+    video_id = f"{video_name}_{timestamp}{video_base_format}"
 
     try:
         # Upload the video to MinIO
@@ -129,6 +146,7 @@ def download_file(video_id):
         print(f"Failed to download file {video_id} from MinIO: {e}")
         return jsonify({"error": "File not found"}), 404
     finally:
+        minio_client.remove_object(MINIO_BUCKET_CONVERT, video_id)
         # Clean up the temporary file
         if os.path.exists(temp_file):
             os.remove(temp_file)

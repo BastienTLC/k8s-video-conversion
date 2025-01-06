@@ -45,12 +45,13 @@ def wait_for_kafka_ready(broker, retries=5, delay=5):
 
 def convert_video(task):
     input_file = f"tmp/input/{task['video_id']}"
-    video_name = task["video_id"].split(".")[0]
+    video_name, video_base_format = os.path.splitext(task['video_id'])
     output_file = f"tmp/output/{video_name}.{task['format']}"
 
     try:
         # Download the video from MinIO
         minio_client.fget_object(MINIO_BUCKET_BASE, task['video_id'], input_file)
+        minio_client.remove_object(MINIO_BUCKET_BASE, task['video_id'])
 
         # Convert the video
         result = subprocess.run(
