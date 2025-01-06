@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: bastientlc/worker:latest 
+          env:
+            - name: KAFKA_BROKER
+              value: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: MINIO_ENDPOINT
+              value: "myminio-hl.minio.svc.cluster.local:9000"
+            - name: MINIO_ACCESS_KEY
+              value: "minio"
+            - name: MINIO_SECRET_KEY
+              value: "minio123"
+            - name: MINIO_BUCKET_BASE
+              value: "video-base"
+            - name: MINIO_BUCKET_CONVERT
+              value: "video-convert"
