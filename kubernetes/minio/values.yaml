@@ -69,7 +69,8 @@ tenant:
   ###
   # The Kubernetes secret name that contains MinIO environment variable configurations.
   # The secret is expected to have a key named config.env containing environment variables exports.
-
+  configuration:
+    name: myminio-env-configuration
   ###
   # Root key for dynamically creating a secret for use with configuring root MinIO User
   # Specify the ``name`` and then a list of environment variables.
@@ -87,13 +88,12 @@ tenant:
   #    accessKey: minio
   #    secretKey: minio123
   #
-  configuration:
-    name: myminio-env-configuration
   configSecret:
     name: myminio-env-configuration
-    accessKey:
-    secretKey:
-    existingSecret: true
+    accessKey: minio
+    secretKey: minio123
+    #existingSecret: true
+
 
   ###
   # Metadata that will be added to the statefulset and pods of all pools

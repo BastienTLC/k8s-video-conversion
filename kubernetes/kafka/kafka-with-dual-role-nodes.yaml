@@ -1,6 +1,8 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaNodePool
 metadata:
+  annotations:
+    force-redeploy: "true"
   name: dual-role
   labels:
     strimzi.io/cluster: my-cluster
@@ -22,6 +24,8 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
+  annotations:
+    force-redeploy: "true"
   name: my-cluster
   annotations:
     strimzi.io/node-pools: enabled
@@ -59,6 +63,8 @@ spec:
 kind: ConfigMap
 apiVersion: v1
 metadata:
+  annotations:
+    force-redeploy: "true"
   name: kafka-metrics
   labels:
     app: strimzi

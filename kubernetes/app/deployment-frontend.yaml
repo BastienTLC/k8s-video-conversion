@@ -4,7 +4,7 @@ metadata:
   name: frontend
   namespace: app
 spec:
-  replicas: 1
+  replicas: 3  # Augmenté à 3 replicas
   selector:
     matchLabels:
       app: frontend
@@ -18,9 +18,28 @@ spec:
           image: bastientlc/frontend:latest 
           ports:
             - containerPort: 80
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
           env:
             - name: MY_APP_VITE_API_URL
               value: "/api"
+          readinessProbe:
+            httpGet:
+              path: /  # À adapter selon votre endpoint de health check
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /  # À adapter selon votre endpoint de health check
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
 ---
 apiVersion: v1
 kind: Service
