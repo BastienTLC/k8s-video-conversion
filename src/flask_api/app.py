@@ -151,10 +151,36 @@ def download_file(video_id):
         if os.path.exists(temp_file):
             os.remove(temp_file)
             print(f"Temporary file {temp_file} deleted.")
-@app.route('/test', methods=['GET'])
-def test():
-    print(f"API is up and running.")
-    return jsonify({"status": "ok"}), 200
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    try:
+        KafkaConsumer(bootstrap_servers=KAFKA_BROKER).close()
+
+        if not minio_client.bucket_exists(MINIO_BUCKET_BASE):
+            raise Exception("MinIO base bucket non disponible")
+
+        return jsonify({"status": "healthy"}), 200
+    except Exception as e:
+        print(f"Health check failed: {e}")
+        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+
+
+@app.route('/ready', methods=['GET'])
+def ready():
+
+    try:
+        KafkaProducer(bootstrap_servers=KAFKA_BROKER).close()
+
+        if not minio_client.bucket_exists(MINIO_BUCKET_BASE):
+            raise Exception("MinIO base bucket non disponible")
+
+        return jsonify({"status": "ready"}), 200
+    except Exception as e:
+        print(f"Readiness check failed: {e}")
+        return jsonify({"status": "not ready", "error": str(e)}), 503
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
