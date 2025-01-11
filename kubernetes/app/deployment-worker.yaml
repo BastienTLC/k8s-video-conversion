@@ -4,7 +4,7 @@ metadata:
   name: worker
   namespace: app
 spec:
-  replicas: 1
+  replicas: 3  # Augmenté à 3 replicas
   selector:
     matchLabels:
       app: worker
@@ -16,6 +16,13 @@ spec:
       containers:
         - name: worker
           image: bastientlc/worker:latest 
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
           env:
             - name: KAFKA_BROKER
               value: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
