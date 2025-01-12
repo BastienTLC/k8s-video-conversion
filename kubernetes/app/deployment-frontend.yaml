@@ -4,7 +4,7 @@ metadata:
   name: frontend
   namespace: app
 spec:
-  replicas: 3  # Augmenté à 3 replicas
+  replicas: 1
   selector:
     matchLabels:
       app: frontend
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: bastientlc/frontend:latest 
+          image: bastientlc/frontend:latest
           ports:
             - containerPort: 80
           resources:
@@ -30,13 +30,13 @@ spec:
               value: "/api"
           readinessProbe:
             httpGet:
-              path: /  # À adapter selon votre endpoint de health check
+              path: /
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /  # À adapter selon votre endpoint de health check
+              path: /
               port: 80
             initialDelaySeconds: 15
             periodSeconds: 20

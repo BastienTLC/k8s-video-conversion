@@ -94,7 +94,6 @@ tenant:
     secretKey: minio123
     #existingSecret: true
 
-
   ###
   # Metadata that will be added to the statefulset and pods of all pools
   poolsMetadata:
@@ -135,10 +134,10 @@ tenant:
       name: pool-0
       ###
       # The number of volumes attached per MinIO Tenant Pod / Server.
-      volumesPerServer: 2
+      volumesPerServer: 4
       ###
       # The capacity per volume requested per MinIO Tenant Pod.
-      size: 5Gi
+      size: 10Gi
       ###
       # The `storageClass <https://kubernetes.io/docs/concepts/storage/storage-classes/>`__ to associate with volumes generated for this pool.
       #
@@ -357,12 +356,18 @@ tenant:
   ###
   # Add environment variables to be set in MinIO container (https://github.com/minio/minio/tree/master/docs/config)
   env:
-  - name: MINIO_PROMETHEUS_URL
-    value: "https://prometheus-server.monitoring.svc.cluster.local:80"
-  - name: MINIO_PROMETHEUS_JOB_ID
-    value: "minio-job"
-  - name : MINIO_PROMETHEUS_AUTH_TYPE
-    value : "public"
+
+    - name: MINIO_PROMETHEUS_URL
+
+      value: "https://prometheus-server.monitoring.svc.cluster.local:80"
+
+    - name: MINIO_PROMETHEUS_JOB_ID
+
+      value: "minio-job"
+
+    - name : MINIO_PROMETHEUS_AUTH_TYPE
+
+      value : "public"
   ###
   # PriorityClassName indicates the Pod priority and hence importance of a Pod relative to other Pods.
   # This is applied to MinIO pods only.
@@ -509,13 +514,14 @@ ingress:
     pathType: Prefix
 # Use an extraResources template section to include additional Kubernetes resources
 # with the Helm deployment.
-extraResources:
- - |
-   apiVersion: v1
-   kind: Secret
-   type: Opaque
-   metadata:
-     name: {{ dig "tenant" "configSecret" "name" "" (.Values | merge (dict)) }}
-   stringData:
-     config.env: |-
-       export MINIO_PROMETHEUS_AUTH_TYPE='public'
+#extraResources:
+#  - |
+#    apiVersion: v1
+#    kind: Secret
+#    type: Opaque
+#    metadata:
+#      name: {{ dig "tenant" "configSecret" "name" "" (.Values | merge (dict)) }}
+#    stringData:
+#      config.env: |-
+#        export MINIO_ROOT_USER='minio'
+#        export MINIO_ROOT_PASSWORD='minio123'

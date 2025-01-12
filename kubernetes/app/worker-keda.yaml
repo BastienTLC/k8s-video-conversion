@@ -1,0 +1,20 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-scaledobject
+  namespace: app
+spec:
+  scaleTargetRef:
+    kind: Deployment
+    name: worker
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  cooldownPeriod: 30  
+  pollingInterval: 15  
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+        topic: task_queue
+        consumerGroup: video-converter-group   
+        lagThreshold: "10"                    

@@ -4,7 +4,7 @@ metadata:
   name: api
   namespace: app
 spec:
-  replicas: 3  # Augmenté à 3 replicas
+  replicas: 1 
   selector:
     matchLabels:
       app: api
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: bastientlc/api:latest 
+          image: bastientlc/api:latest
           ports:
             - containerPort: 5000
           resources:
@@ -40,13 +40,13 @@ spec:
               value: "video-convert"
           readinessProbe:
             httpGet:
-              path: /test  # À adapter selon votre endpoint de health check
+              path: /ready
               port: 5000
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /test  # À adapter selon votre endpoint de health check
+              path: /health
               port: 5000
             initialDelaySeconds: 15
             periodSeconds: 20

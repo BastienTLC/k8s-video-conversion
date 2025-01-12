@@ -4,7 +4,7 @@ metadata:
   name: worker
   namespace: app
 spec:
-  replicas: 3  # Augmenté à 3 replicas
+  replicas: 1
   selector:
     matchLabels:
       app: worker
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: bastientlc/worker:latest 
+          image: bastientlc/worker:latest
           resources:
             requests:
               cpu: "200m"
@@ -36,3 +36,5 @@ spec:
               value: "video-base"
             - name: MINIO_BUCKET_CONVERT
               value: "video-convert"
+            - name: KAFKA_CONSUMER_GROUP
+              value: "video-converter-group"
