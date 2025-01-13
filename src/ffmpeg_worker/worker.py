@@ -91,7 +91,7 @@ wait_for_kafka_ready(KAFKA_BROKER)
 
 # Kafka consumer and producer
 consumer = KafkaConsumer(
-    "task_queue",
+    "task-queue",
     bootstrap_servers=KAFKA_BROKER,
     auto_offset_reset='earliest',
     enable_auto_commit=True,
@@ -115,7 +115,7 @@ for message in consumer:
 
         # Send result to result_queue
         print(f"Sending result: {result}")
-        producer.send("result_queue", value=result)
+        producer.send("result-queue", value=result)
 
     except Exception as e:
         print(f"Error processing message: {e}")

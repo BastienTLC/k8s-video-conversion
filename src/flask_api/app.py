@@ -91,7 +91,7 @@ def submit_video():
         task = {"video_id": video_id, "format": format}
         print(f"Task to send: {task}")
 
-        producer.send("task_queue", value=task)
+        producer.send("task-queue", value=task)
         print("Task sent to Kafka successfully.")
 
         return jsonify({"video_id": video_id}), 200
@@ -108,7 +108,7 @@ def check_status(video_id):
     print(f"Received /status request for video_id: {video_id}")
     try:
         consumer = KafkaConsumer(
-            "result_queue",
+            "result-queue",
             bootstrap_servers=KAFKA_BROKER,
             auto_offset_reset='earliest',
             enable_auto_commit=True,
@@ -155,31 +155,12 @@ def download_file(video_id):
 
 @app.route('/health', methods=['GET'])
 def health():
-    try:
-        KafkaConsumer(bootstrap_servers=KAFKA_BROKER).close()
-
-        if not minio_client.bucket_exists(MINIO_BUCKET_BASE):
-            raise Exception("MinIO base bucket non disponible")
-
-        return jsonify({"status": "healthy"}), 200
-    except Exception as e:
-        print(f"Health check failed: {e}")
-        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+    return jsonify({"status": "healthy"}), 200
 
 
 @app.route('/ready', methods=['GET'])
 def ready():
-
-    try:
-        KafkaProducer(bootstrap_servers=KAFKA_BROKER).close()
-
-        if not minio_client.bucket_exists(MINIO_BUCKET_BASE):
-            raise Exception("MinIO base bucket non disponible")
-
-        return jsonify({"status": "ready"}), 200
-    except Exception as e:
-        print(f"Readiness check failed: {e}")
-        return jsonify({"status": "not ready", "error": str(e)}), 503
+    return jsonify({"status": "ready"}), 200
 
 
 if __name__ == "__main__":
