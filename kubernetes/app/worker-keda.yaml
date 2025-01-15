@@ -5,16 +5,17 @@ metadata:
   namespace: app
 spec:
   scaleTargetRef:
+    apiVersion: apps/v1
     kind: Deployment
     name: worker
   minReplicaCount: 1
   maxReplicaCount: 4
-  cooldownPeriod: 30  
-  pollingInterval: 15  
+  cooldownPeriod: 15
+  pollingInterval: 5
   triggers:
     - type: kafka
       metadata:
         bootstrapServers: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+        consumerGroup: video-converter-group
         topic: task_queue
-        consumerGroup: video-converter-group   
-        lagThreshold: "10"                    
+        lagThreshold: "10"

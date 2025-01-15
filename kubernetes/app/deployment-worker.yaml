@@ -18,11 +18,11 @@ spec:
           image: bastientlc/worker:latest
           resources:
             requests:
-              cpu: "200m"
+              cpu: "500m"
               memory: "256Mi"
             limits:
               cpu: "1000m"
-              memory: "1Gi"
+              memory: "512Gi"
           env:
             - name: KAFKA_BROKER
               value: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
