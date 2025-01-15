@@ -1,106 +1,111 @@
 # k8s-video-conversion
 
+A video processing application using Kafka for communication between components. The application enables video file uploads through an API, processes them using workers, and stores the results in shared storage.
 
-# Video Processing Application with Kafka
+## Table of Contents
+- [Docker Compose Setup](#docker-compose-setup)
+- [Kubernetes Setup](#kubernetes-setup)
+- [Using the Application](#using-the-application)
+- [Load Testing](#load-testing)
+- [Monitoring](#monitoring)
 
-This application processes video files uploaded via an API, converts them using a worker, and stores the results in a shared storage. The communication is managed through Kafka.
+## Docker Compose Setup
 
----
+### Prerequisites
+- Docker
+- Docker Compose
 
-## **How to Run with Docker**
+### Installation and Startup
 
-1. **Start the services with Docker Compose**  
-   Use the following command to start the services (API, Kafka, Worker, Frontend):
-   ```bash
-   docker-compose up --build
-   ```
+1. **Launch services**
+docker-compose up --build
 
-2. **Verify the services**  
-   Ensure all services are running by checking their logs:
-   ```bash
-   docker-compose logs -f
-   ```
-
----
-
-## **How to Run with Kubernetes**
-
-1. **Start the services with Kubectl**  
-    Use the following command to start the services (API, Kafka, Worker, Frontend):
-    ```bash
-    kubectl apply -f manifest.yaml
-    ```
-
-2. **Verify the services**  
-    Ensure everything is running by checking services, pods, etc.:
-    ```bash
-    kubectl get svc
-    kubectl get pod
-    ```
-
-3. **Forward the frontend and API**  
-    Expose the frontend and the API outside the cluster:
-    ```bash
-    kubectl port-forward svc/frontend 8080:80    
-    kubectl port-forward svc/flask-api-service 5000:5000
-    ```
-
----
-
-## **Creating Kafka Topics**
-
-To enable the communication between the API and Worker, create the required Kafka topics.
-
-1. **Access the Kafka container**  
-   Execute the following command to open a shell inside the Kafka container:
-   ```bash
-   docker exec -it kafka bash
-   ```
-
-2. **Create the `task_queue` topic**  
-   Use the `kafka-topics.sh` script to create the topic:
-   ```bash
-   kafka-topics.sh --create --topic task_queue --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1
-   ```
-
-3. **Create the `result_queue` topic**  
-   Similarly, create the second topic:
-   ```bash
-   kafka-topics.sh --create --topic result_queue --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1
-   ```
-
-4. **Verify the topics**  
-   List all topics to ensure they were created successfully:
-   ```bash
-   kafka-topics.sh --list --bootstrap-server kafka:9092
-   ```
-
----
-
-## **Access the Application**
-
-- **API**:  
-  The API runs on `http://localhost:5000`. Use a tool like Postman or `curl` to interact with it.
-
-- **Frontend**:  
-  Access the frontend interface at `http://localhost:3000`.
-
----
-
-## **Cleanup**
+2. **Check services status**
+```
+docker-compose logs -f
+```
+### Cleanup
 
 To stop and remove all services:
-```bash
+```
 docker-compose down
 ```
-
-To remove all volumes and clean up storage:
-```bash
+To remove volumes as well:
+```
 docker-compose down --volumes
 ```
+## Kubernetes Setup
+
+### Installing Kafka Cluster with Strimzi
+
+1. **Create Kafka namespace**
+```
+kubectl create namespace kafka
+```
+3. **Install Strimzi**
+```
+kubectl create -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
+```
+5. **Verify operator deployment**
+```
+kubectl get pod -n kafka --watch
+kubectl logs deployment/strimzi-cluster-operator -n kafka -f
 ```
 
-To stop and remove all ressources form cluster:
-```bash
-kubectl delete -f manifest.yaml
+7. **Deploy Kafka cluster**
+```
+kubectl apply -f kubernetes/kafka/kafka.yaml -n kafka
+```
+### Installing MinIO
+
+1. **Deploy MinIO operator**
+Follow the official documentation for Helm installation:
+https://min.io/docs/minio/kubernetes/upstream/operations/install-deploy-manage/deploy-operator-helm.html
+
+2. **Create MinIO tenant**
+Follow the documentation for tenant configuration:
+https://min.io/docs/minio/kubernetes/upstream/operations/install-deploy-manage/deploy-minio-tenant.html
+
+### Deploying the Application
+
+Deploy all application components:
+```
+kubectl apply -f kubernetes/app/
+```
+### Monitoring
+
+1. **Install Prometheus**
+```
+helm install -f kubernetes/prometheus/prometheus-values.yaml prometheus prometheus-community/prometheus
+```
+3. **Configure Kafka monitoring**
+```
+kubectl apply -f kubernetes/prometheus/strimzi-pod-monitor.yaml
+```
+### Load Testing
+
+Deploy Locust for performance testing:
+```
+kubectl apply -f kubernetes/locust/locust-deployment.yaml
+```
+## Using the Application
+
+### Accessing Interfaces
+
+- **API**: http://localhost:5000
+- **Frontend**: http://localhost:3000
+
+### Accessing Dashboards
+
+- **Prometheus**: http://localhost:9090
+- **Locust**: http://localhost:8089
+
+## Kubernetes Environment Cleanup
+
+To remove all resources:
+```
+kubectl delete -f kubernetes/app/
+kubectl delete -n kafka -f kubernetes/kafka/kafka.yaml
+kubectl delete -f 'https://strimzi.io/install/latest?namespace=kafka'
+kubectl delete namespace kafka
 ```
