@@ -12,6 +12,7 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET_BASE = os.getenv("MINIO_BUCKET_BASE", "video-base")
 MINIO_BUCKET_CONVERT = os.getenv("MINIO_BUCKET_CONVERT", "video-convert")
+KAFKA_CONSUMER_GROUP = os.getenv("KAFKA_CONSUMER_GROUP", "video-converter-group")
 
 # Initialize MinIO client
 minio_client = Minio(
@@ -55,7 +56,17 @@ def convert_video(task):
 
         # Convert the video
         result = subprocess.run(
-            ["ffmpeg", "-y", "-i", input_file, output_file],
+            [
+                "ffmpeg",
+                "-y",  # Overwrite output file without asking
+                "-i", input_file,  # Input file
+                "-c:v", "libx264",  # Use H.264 codec (plus rapide que H.265)
+                "-preset", "ultrafast",  # Fastest encoding preset, minimal CPU usage
+                "-crf", "35",  # High compression, reduces CPU usage
+                "-c:a", "aac",  # Efficient and widely supported audio codec
+                "-b:a", "96k",  # Lower audio bitrate to reduce processing
+                output_file
+            ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
@@ -91,10 +102,11 @@ wait_for_kafka_ready(KAFKA_BROKER)
 
 # Kafka consumer and producer
 consumer = KafkaConsumer(
-    "task-queue",
+    "task_queue",
     bootstrap_servers=KAFKA_BROKER,
+    group_id=KAFKA_CONSUMER_GROUP,
     auto_offset_reset='earliest',
-    enable_auto_commit=True,
+    enable_auto_commit=False,
     value_deserializer=lambda v: json.loads(v.decode('utf-8'))
 )
 producer = KafkaProducer(
@@ -115,7 +127,10 @@ for message in consumer:
 
         # Send result to result_queue
         print(f"Sending result: {result}")
-        producer.send("result-queue", value=result)
+        producer.send("result_queue", value=result)
+
+        consumer.commit()
+        print(f"Committed message: {message.offset}")
 
     except Exception as e:
         print(f"Error processing message: {e}")

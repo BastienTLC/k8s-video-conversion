@@ -1,3 +1,4 @@
+import random
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from kafka import KafkaProducer, KafkaConsumer
@@ -21,6 +22,7 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET_BASE = os.getenv("MINIO_BUCKET_BASE", "video-base")
 MINIO_BUCKET_CONVERT = os.getenv("MINIO_BUCKET_CONVERT", "video-convert")
+KAFKA_CONSUMER_GROUP = os.getenv("KAFKA_CONSUMER_GROUP", "api-result-group")
 
 # Initialize MinIO client
 minio_client = Minio(
@@ -79,7 +81,8 @@ def submit_video():
 
     video_name, video_base_format = os.path.splitext(file.filename)
     timestamp = int(time.time())
-    video_id = f"{video_name}_{timestamp}{video_base_format}"
+    random_number = random.randint(1, 100)
+    video_id = f"{video_name}_{timestamp}_{random_number}{video_base_format}"
 
     try:
         # Upload the video to MinIO
@@ -91,7 +94,7 @@ def submit_video():
         task = {"video_id": video_id, "format": format}
         print(f"Task to send: {task}")
 
-        producer.send("task-queue", value=task)
+        producer.send("task_queue", value=task)
         print("Task sent to Kafka successfully.")
 
         return jsonify({"video_id": video_id}), 200
@@ -108,7 +111,7 @@ def check_status(video_id):
     print(f"Received /status request for video_id: {video_id}")
     try:
         consumer = KafkaConsumer(
-            "result-queue",
+            "result_queue",
             bootstrap_servers=KAFKA_BROKER,
             auto_offset_reset='earliest',
             enable_auto_commit=True,
